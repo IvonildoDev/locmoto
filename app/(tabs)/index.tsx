@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import {
   Dimensions,
@@ -7,33 +6,16 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
   ViewToken,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LocationCard } from '../../components/LocationCard';
 import Colors from '../../constants/Colors';
 import { useMotos } from '../../context/MotosContext';
-import { Location, Motorcycle } from '../../types';
+import { Motorcycle } from '../../types';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 64;
-
-// Localização fixa da LocMoto
-const locacaoLocMoto: Location = {
-  id: '1',
-  name: 'LocMoto Pilar',
-  address: 'Rua 7 de Maio, Chã do Pilar',
-  distance: 'Pilar, AL',
-  isOpen: true,
-  hours: '08:00 - 18:00',
-  type: 'store',
-  coordinates: {
-    latitude: -9.5989,
-    longitude: -35.9567,
-  },
-};
 
 export default function HomeScreen() {
   const { motos } = useMotos();
@@ -51,14 +33,7 @@ export default function HomeScreen() {
   }).current;
 
   const renderMotoCarouselCard = ({ item }: { item: Motorcycle }) => (
-    <TouchableOpacity
-      style={styles.carouselCard}
-      activeOpacity={0.9}
-      onPress={() => router.push({
-        pathname: '/moto-details',
-        params: { id: item.id }
-      })}
-    >
+    <View style={styles.carouselCard}>
       <Image source={{ uri: item.imageUrl }} style={styles.carouselImage} />
       <View style={styles.carouselContent}>
         <View style={styles.carouselInfo}>
@@ -83,7 +58,7 @@ export default function HomeScreen() {
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   return (
@@ -91,6 +66,8 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>LocMoto</Text>
+        <Text style={styles.headerAddress}>Rua 7 de Maio, Chã do Pilar - Pilar, AL</Text>
+        <Text style={styles.headerHours}>Horário: 08:00 - 17:00</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -142,15 +119,6 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
-
-        {/* Locations List */}
-        <View style={styles.locationsContainer}>
-          <Text style={styles.sectionTitle}>Nossa Localização</Text>
-          <LocationCard
-            location={locacaoLocMoto}
-            onPress={() => router.push('/rent')}
-          />
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -166,11 +134,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.shared.cardBg,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFF',
+    color: Colors.shared.primary,
+  },
+  headerAddress: {
+    fontSize: 12,
+    color: Colors.shared.gray,
+    marginTop: 4,
+  },
+  headerHours: {
+    fontSize: 12,
+    color: '#27ae60',
+    marginTop: 2,
   },
   sectionTitle: {
     fontSize: 20,
@@ -300,10 +280,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFF',
     fontWeight: '500',
-  },
-  // Localizações
-  locationsContainer: {
-    marginTop: 24,
-    paddingBottom: 100,
   },
 });

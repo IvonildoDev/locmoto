@@ -57,12 +57,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="reservas"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
         name="relatorio"
         options={{
           title: 'Relatório',

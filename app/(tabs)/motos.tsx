@@ -4,16 +4,16 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  FlatList,
-  Image,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    FlatList,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/Button';
@@ -77,6 +77,7 @@ export default function MotosScreen() {
   // Campos de aluguel
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
+  const [formaPagamento, setFormaPagamento] = useState<'dinheiro' | 'debito' | 'credito' | 'pix'>('dinheiro');
   
   // Dados do cliente
   const [clienteNome, setClienteNome] = useState('');
@@ -362,10 +363,28 @@ export default function MotosScreen() {
 
   const calcularDias = () => {
     if (!dataInicio || !dataFim) return 0;
-    const [diaI, mesI, anoI] = dataInicio.split('/').map(Number);
-    const [diaF, mesF, anoF] = dataFim.split('/').map(Number);
+    // Verificar se as datas estão no formato completo DD/MM/AAAA
+    if (dataInicio.length !== 10 || dataFim.length !== 10) return 0;
+    
+    const partesInicio = dataInicio.split('/');
+    const partesFim = dataFim.split('/');
+    
+    if (partesInicio.length !== 3 || partesFim.length !== 3) return 0;
+    
+    const [diaI, mesI, anoI] = partesInicio.map(Number);
+    const [diaF, mesF, anoF] = partesFim.map(Number);
+    
+    // Validar se os valores são números válidos
+    if (isNaN(diaI) || isNaN(mesI) || isNaN(anoI) || isNaN(diaF) || isNaN(mesF) || isNaN(anoF)) return 0;
+    if (diaI < 1 || diaI > 31 || mesI < 1 || mesI > 12 || anoI < 2024) return 0;
+    if (diaF < 1 || diaF > 31 || mesF < 1 || mesF > 12 || anoF < 2024) return 0;
+    
     const inicio = new Date(anoI, mesI - 1, diaI);
     const fim = new Date(anoF, mesF - 1, diaF);
+    
+    // Verificar se as datas são válidas
+    if (isNaN(inicio.getTime()) || isNaN(fim.getTime())) return 0;
+    
     const diff = Math.ceil((fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
     return diff > 0 ? diff : 0;
   };
@@ -409,71 +428,80 @@ export default function MotosScreen() {
           <style>
             body {
               font-family: Arial, sans-serif;
-              padding: 40px;
+              padding: 25px;
               color: #333;
-              line-height: 1.6;
+              line-height: 1.4;
+              font-size: 11px;
             }
             .header {
               text-align: center;
-              border-bottom: 3px solid #E67E22;
-              padding-bottom: 20px;
-              margin-bottom: 30px;
+              border-bottom: 2px solid #E67E22;
+              padding-bottom: 10px;
+              margin-bottom: 15px;
             }
             .header h1 {
               color: #E67E22;
               margin: 0;
-              font-size: 28px;
+              font-size: 20px;
             }
             .header p {
               color: #666;
-              margin: 5px 0;
+              margin: 3px 0;
+              font-size: 10px;
             }
             .contract-title {
               text-align: center;
-              font-size: 20px;
+              font-size: 14px;
               font-weight: bold;
-              margin: 30px 0;
+              margin: 15px 0;
               text-transform: uppercase;
             }
             .section {
-              margin-bottom: 25px;
+              margin-bottom: 12px;
             }
             .section h3 {
               color: #8B5A2B;
               border-bottom: 1px solid #ddd;
-              padding-bottom: 8px;
-              margin-bottom: 15px;
+              padding-bottom: 4px;
+              margin-bottom: 8px;
+              font-size: 12px;
             }
             .info-row {
               display: flex;
-              margin-bottom: 8px;
+              margin-bottom: 4px;
             }
             .info-label {
               font-weight: bold;
-              width: 180px;
+              width: 140px;
               color: #555;
+              font-size: 10px;
             }
             .info-value {
               flex: 1;
+              font-size: 10px;
             }
             .terms {
               background: #f9f9f9;
-              padding: 20px;
-              border-radius: 8px;
-              margin: 20px 0;
+              padding: 10px;
+              border-radius: 5px;
+              margin: 10px 0;
             }
             .terms h4 {
               margin-top: 0;
               color: #E67E22;
+              font-size: 11px;
+              margin-bottom: 8px;
             }
             .terms ol {
-              padding-left: 20px;
+              padding-left: 15px;
+              margin: 0;
             }
             .terms li {
-              margin-bottom: 10px;
+              margin-bottom: 4px;
+              font-size: 9px;
             }
             .signature-section {
-              margin-top: 60px;
+              margin-top: 30px;
               display: flex;
               justify-content: space-between;
             }
@@ -483,19 +511,25 @@ export default function MotosScreen() {
             }
             .signature-line {
               border-top: 1px solid #333;
-              padding-top: 10px;
-              margin-top: 60px;
+              padding-top: 5px;
+              margin-top: 30px;
             }
             .total-box {
               background: #E67E22;
               color: white;
-              padding: 15px 25px;
-              border-radius: 8px;
+              padding: 8px 15px;
+              border-radius: 5px;
               text-align: center;
-              margin: 20px 0;
+              margin: 10px 0;
+              display: inline-block;
+              width: auto;
+            }
+            .total-box .label {
+              font-size: 10px;
+              margin-bottom: 2px;
             }
             .total-box .value {
-              font-size: 28px;
+              font-size: 16px;
               font-weight: bold;
             }
             .footer {
@@ -579,11 +613,17 @@ export default function MotosScreen() {
               <span class="info-label">Valor da Diária:</span>
               <span class="info-value">R$ ${selectedMoto.dailyRate.toFixed(2).replace('.', ',')}</span>
             </div>
+            <div class="info-row">
+              <span class="info-label">Forma de Pagamento:</span>
+              <span class="info-value">${formaPagamento === 'dinheiro' ? 'Dinheiro' : formaPagamento === 'debito' ? 'Cartão de Débito' : formaPagamento === 'credito' ? 'Cartão de Crédito' : 'PIX'}</span>
+            </div>
           </div>
 
-          <div class="total-box">
-            <div>VALOR TOTAL</div>
-            <div class="value">R$ ${valorTotal.toFixed(2).replace('.', ',')}</div>
+          <div style="text-align: center; margin: 10px 0;">
+            <div class="total-box">
+              <div class="label">VALOR TOTAL</div>
+              <div class="value">R$ ${valorTotal.toFixed(2).replace('.', ',')}</div>
+            </div>
           </div>
 
           <div class="terms">
@@ -606,30 +646,23 @@ export default function MotosScreen() {
 
           <div class="signature-section">
             <div class="signature-box">
-              <p style="margin-bottom: 5px; font-weight: bold;">LOCADORA:</p>
-              <div style="border-bottom: 1px solid #333; height: 40px; margin-bottom: 5px;"></div>
-              <p style="margin: 0; font-size: 14px;"><strong>LocMoto</strong></p>
-              <p style="margin: 0; font-size: 12px; color: #666;">Representante Legal</p>
-              <p style="margin-top: 10px; font-size: 11px; color: #888;">CPF: ___.___.___-__</p>
+              <p style="margin-bottom: 3px; font-weight: bold; font-size: 10px;">LOCADORA:</p>
+              <div style="border-bottom: 1px solid #333; height: 25px; margin-bottom: 3px;"></div>
+              <p style="margin: 0; font-size: 10px;"><strong>LocMoto</strong></p>
+              <p style="margin: 0; font-size: 9px; color: #666;">Representante Legal</p>
             </div>
             <div class="signature-box">
-              <p style="margin-bottom: 5px; font-weight: bold;">LOCATÁRIO:</p>
-              <div style="border-bottom: 1px solid #333; height: 40px; margin-bottom: 5px;"></div>
-              <p style="margin: 0; font-size: 14px;"><strong>${clienteNome}</strong></p>
-              <p style="margin: 0; font-size: 12px; color: #666;">CPF: ${clienteCpf}</p>
-              <p style="margin-top: 10px; font-size: 11px; color: #888;">CNH: ${clienteCnh}</p>
+              <p style="margin-bottom: 3px; font-weight: bold; font-size: 10px;">LOCATÁRIO:</p>
+              <div style="border-bottom: 1px solid #333; height: 25px; margin-bottom: 3px;"></div>
+              <p style="margin: 0; font-size: 10px;"><strong>${clienteNome}</strong></p>
+              <p style="margin: 0; font-size: 9px; color: #666;">CPF: ${clienteCpf}</p>
             </div>
           </div>
 
-          <div style="margin-top: 40px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
-            <p style="margin: 0; font-size: 12px; text-align: center; color: #666;">
+          <div style="margin-top: 15px; padding: 8px; background: #f5f5f5; border-radius: 5px;">
+            <p style="margin: 0; font-size: 9px; text-align: center; color: #666;">
               <strong>DECLARAÇÃO:</strong> Declaro ter lido e estar de acordo com todas as cláusulas deste contrato.
             </p>
-          </div>
-
-          <div class="footer">
-            <p>LocMoto - Aluguel de Motocicletas</p>
-            <p>Contrato gerado em ${dataAtual}</p>
           </div>
         </body>
       </html>
@@ -910,7 +943,7 @@ export default function MotosScreen() {
                     </View>
                   </View>
 
-                  {dataInicio && dataFim && (
+                  {dataInicio.length === 10 && dataFim.length === 10 && calcularDias() > 0 && (
                     <View style={styles.totalCard}>
                       <View style={styles.totalRow}>
                         <Text style={styles.totalLabel}>Dias:</Text>
@@ -1032,6 +1065,74 @@ export default function MotosScreen() {
                         <Ionicons name="close-circle" size={20} color="#e74c3c" />
                         <Text style={styles.removeClienteText}>Remover</Text>
                       </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* Forma de Pagamento */}
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="wallet" size={20} color={Colors.shared.primary} />
+                    <Text style={styles.sectionTitle}>Forma de Pagamento</Text>
+                  </View>
+
+                  <View style={styles.paymentOptionsContainer}>
+                    <TouchableOpacity
+                      style={[styles.paymentOption, formaPagamento === 'dinheiro' && styles.paymentOptionActive]}
+                      onPress={() => setFormaPagamento('dinheiro')}
+                    >
+                      <Ionicons name="cash-outline" size={24} color={formaPagamento === 'dinheiro' ? Colors.shared.primary : Colors.shared.gray} />
+                      <Text style={[styles.paymentOptionText, formaPagamento === 'dinheiro' && styles.paymentOptionTextActive]}>Dinheiro</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.paymentOption, formaPagamento === 'debito' && styles.paymentOptionActive]}
+                      onPress={() => setFormaPagamento('debito')}
+                    >
+                      <Ionicons name="card-outline" size={24} color={formaPagamento === 'debito' ? Colors.shared.primary : Colors.shared.gray} />
+                      <Text style={[styles.paymentOptionText, formaPagamento === 'debito' && styles.paymentOptionTextActive]}>Débito</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.paymentOption, formaPagamento === 'credito' && styles.paymentOptionActive]}
+                      onPress={() => setFormaPagamento('credito')}
+                    >
+                      <Ionicons name="card" size={24} color={formaPagamento === 'credito' ? Colors.shared.primary : Colors.shared.gray} />
+                      <Text style={[styles.paymentOptionText, formaPagamento === 'credito' && styles.paymentOptionTextActive]}>Crédito</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.paymentOption, formaPagamento === 'pix' && styles.paymentOptionActive]}
+                      onPress={() => setFormaPagamento('pix')}
+                    >
+                      <Ionicons name="qr-code-outline" size={24} color={formaPagamento === 'pix' ? Colors.shared.primary : Colors.shared.gray} />
+                      <Text style={[styles.paymentOptionText, formaPagamento === 'pix' && styles.paymentOptionTextActive]}>PIX</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Resumo do Pagamento */}
+                  {dataInicio.length === 10 && dataFim.length === 10 && calcularDias() > 0 && (
+                    <View style={styles.paymentSummaryCard}>
+                      <Text style={styles.paymentSummaryTitle}>Resumo do Pagamento</Text>
+                      <View style={styles.paymentSummaryRow}>
+                        <Text style={styles.paymentSummaryLabel}>Diária:</Text>
+                        <Text style={styles.paymentSummaryValue}>R$ {selectedMoto?.dailyRate.toFixed(2).replace('.', ',')}</Text>
+                      </View>
+                      <View style={styles.paymentSummaryRow}>
+                        <Text style={styles.paymentSummaryLabel}>Quantidade de dias:</Text>
+                        <Text style={styles.paymentSummaryValue}>{calcularDias()} dias</Text>
+                      </View>
+                      <View style={styles.paymentSummaryRow}>
+                        <Text style={styles.paymentSummaryLabel}>Forma de pagamento:</Text>
+                        <Text style={styles.paymentSummaryValue}>
+                          {formaPagamento === 'dinheiro' ? 'Dinheiro' : 
+                           formaPagamento === 'debito' ? 'Cartão de Débito' :
+                           formaPagamento === 'credito' ? 'Cartão de Crédito' : 'PIX'}
+                        </Text>
+                      </View>
+                      <View style={styles.paymentSummaryDivider} />
+                      <View style={styles.paymentSummaryRow}>
+                        <Text style={styles.paymentSummaryTotalLabel}>Valor Total:</Text>
+                        <Text style={styles.paymentSummaryTotalValue}>R$ {calcularValorTotal().toFixed(2).replace('.', ',')}</Text>
+                      </View>
                     </View>
                   )}
 
@@ -1743,5 +1844,82 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#e74c3c',
     fontWeight: '500',
+  },
+  // Estilos de Forma de Pagamento
+  paymentOptionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  paymentOption: {
+    flex: 1,
+    minWidth: '45%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#2D2D2D',
+    borderWidth: 1,
+    borderColor: '#3D3D3D',
+  },
+  paymentOptionActive: {
+    backgroundColor: 'rgba(230, 126, 34, 0.1)',
+    borderColor: Colors.shared.primary,
+  },
+  paymentOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.shared.gray,
+  },
+  paymentOptionTextActive: {
+    color: Colors.shared.primary,
+  },
+  paymentSummaryCard: {
+    backgroundColor: '#2D2D2D',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Colors.shared.primary,
+  },
+  paymentSummaryTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFF',
+    marginBottom: 12,
+  },
+  paymentSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  paymentSummaryLabel: {
+    fontSize: 14,
+    color: Colors.shared.gray,
+  },
+  paymentSummaryValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FFF',
+  },
+  paymentSummaryDivider: {
+    height: 1,
+    backgroundColor: '#3D3D3D',
+    marginVertical: 8,
+  },
+  paymentSummaryTotalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  paymentSummaryTotalValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.shared.primary,
   },
 });

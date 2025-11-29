@@ -2,13 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
@@ -16,7 +15,7 @@ import Colors from '../constants/Colors';
 import { useMotos } from '../context/MotosContext';
 
 type PaymentOption = 'partial' | 'full';
-type PaymentMethod = 'credit_card' | 'pix';
+type PaymentMethod = 'dinheiro' | 'debito' | 'credito' | 'pix';
 
 export default function CheckoutScreen() {
   const { motorcycleId, pickupDate, returnDate } = useLocalSearchParams<{
@@ -58,19 +57,10 @@ export default function CheckoutScreen() {
   }
 
   const totalDays = Math.ceil((returnD.getTime() - pickup.getTime()) / (1000 * 60 * 60 * 24));
-  const dailyTotal = moto.dailyRate * totalDays;
-  const insurance = 50;
-  const serviceFee = 25;
-  const total = dailyTotal + insurance + serviceFee;
+  const total = moto.dailyRate * totalDays;
 
   const [paymentOption, setPaymentOption] = useState<PaymentOption>('partial');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit_card');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardName, setCardName] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-
-  const amountToPay = paymentOption === 'partial' ? total * 0.5 : total;
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('dinheiro');
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('pt-BR', {
@@ -109,20 +99,16 @@ export default function CheckoutScreen() {
         {/* Pricing Breakdown */}
         <View style={styles.pricingCard}>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Diária ({formatCurrency(moto.dailyRate)} × {totalDays} dias)</Text>
-            <Text style={styles.priceValue}>{formatCurrency(dailyTotal)}</Text>
+            <Text style={styles.priceLabel}>Diária</Text>
+            <Text style={styles.priceValue}>{formatCurrency(moto.dailyRate)}</Text>
           </View>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Seguro</Text>
-            <Text style={styles.priceValue}>{formatCurrency(insurance)}</Text>
-          </View>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Taxa de serviço</Text>
-            <Text style={styles.priceValue}>{formatCurrency(serviceFee)}</Text>
+            <Text style={styles.priceLabel}>Quantidade de dias</Text>
+            <Text style={styles.priceValue}>{totalDays} {totalDays === 1 ? 'dia' : 'dias'}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.priceRow}>
-            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalLabel}>Valor Total</Text>
             <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
           </View>
         </View>
@@ -151,58 +137,52 @@ export default function CheckoutScreen() {
         {/* Payment Method */}
         <Text style={styles.sectionTitle}>Forma de Pagamento</Text>
         
-        {/* Credit Card */}
+        {/* Dinheiro */}
         <TouchableOpacity
-          style={[styles.paymentMethodCard, paymentMethod === 'credit_card' && styles.paymentMethodActive]}
-          onPress={() => setPaymentMethod('credit_card')}
+          style={[styles.paymentMethodCard, paymentMethod === 'dinheiro' && styles.paymentMethodActive]}
+          onPress={() => setPaymentMethod('dinheiro')}
+        >
+          <View style={styles.paymentMethodHeader}>
+            <View style={styles.paymentMethodLeft}>
+              <Ionicons name="cash-outline" size={24} color={Colors.shared.primary} />
+              <Text style={styles.paymentMethodTitle}>Dinheiro</Text>
+            </View>
+            <View style={[styles.radio, paymentMethod === 'dinheiro' && styles.radioActive]}>
+              {paymentMethod === 'dinheiro' && <View style={styles.radioInner} />}
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Cartão de Débito */}
+        <TouchableOpacity
+          style={[styles.paymentMethodCard, paymentMethod === 'debito' && styles.paymentMethodActive]}
+          onPress={() => setPaymentMethod('debito')}
         >
           <View style={styles.paymentMethodHeader}>
             <View style={styles.paymentMethodLeft}>
               <Ionicons name="card-outline" size={24} color={Colors.shared.primary} />
-              <Text style={styles.paymentMethodTitle}>Cartão de Crédito</Text>
+              <Text style={styles.paymentMethodTitle}>Cartão de Débito</Text>
             </View>
-            <View style={[styles.radio, paymentMethod === 'credit_card' && styles.radioActive]}>
-              {paymentMethod === 'credit_card' && <View style={styles.radioInner} />}
+            <View style={[styles.radio, paymentMethod === 'debito' && styles.radioActive]}>
+              {paymentMethod === 'debito' && <View style={styles.radioInner} />}
             </View>
           </View>
-          
-          {paymentMethod === 'credit_card' && (
-            <View style={styles.cardForm}>
-              <TextInput
-                style={styles.input}
-                placeholder="Número do Cartão"
-                placeholderTextColor={Colors.shared.gray}
-                value={cardNumber}
-                onChangeText={setCardNumber}
-                keyboardType="numeric"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Nome no Cartão"
-                placeholderTextColor={Colors.shared.gray}
-                value={cardName}
-                onChangeText={setCardName}
-              />
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={[styles.input, styles.inputHalf]}
-                  placeholder="MM/AA"
-                  placeholderTextColor={Colors.shared.gray}
-                  value={cardExpiry}
-                  onChangeText={setCardExpiry}
-                />
-                <TextInput
-                  style={[styles.input, styles.inputHalf]}
-                  placeholder="CVV"
-                  placeholderTextColor={Colors.shared.gray}
-                  value={cardCvv}
-                  onChangeText={setCardCvv}
-                  keyboardType="numeric"
-                  secureTextEntry
-                />
-              </View>
+        </TouchableOpacity>
+
+        {/* Cartão de Crédito */}
+        <TouchableOpacity
+          style={[styles.paymentMethodCard, paymentMethod === 'credito' && styles.paymentMethodActive]}
+          onPress={() => setPaymentMethod('credito')}
+        >
+          <View style={styles.paymentMethodHeader}>
+            <View style={styles.paymentMethodLeft}>
+              <Ionicons name="card" size={24} color={Colors.shared.primary} />
+              <Text style={styles.paymentMethodTitle}>Cartão de Crédito</Text>
             </View>
-          )}
+            <View style={[styles.radio, paymentMethod === 'credito' && styles.radioActive]}>
+              {paymentMethod === 'credito' && <View style={styles.radioInner} />}
+            </View>
+          </View>
         </TouchableOpacity>
 
         {/* PIX */}
@@ -213,7 +193,7 @@ export default function CheckoutScreen() {
           <View style={styles.paymentMethodHeader}>
             <View style={styles.paymentMethodLeft}>
               <Ionicons name="qr-code-outline" size={24} color={Colors.shared.primary} />
-              <Text style={styles.paymentMethodTitle}>Pix</Text>
+              <Text style={styles.paymentMethodTitle}>PIX</Text>
             </View>
             <View style={[styles.radio, paymentMethod === 'pix' && styles.radioActive]}>
               {paymentMethod === 'pix' && <View style={styles.radioInner} />}
@@ -230,10 +210,10 @@ export default function CheckoutScreen() {
       {/* Bottom Button */}
       <View style={styles.bottomContainer}>
         <Button
-          title={`Confirmar e Pagar ${formatCurrency(amountToPay)}`}
+          title="Confirmar Pagamento"
           onPress={() => {
-            // Process payment and navigate to success
-            router.replace('/(tabs)/reservas');
+            // Process payment and navigate to home
+            router.replace('/(tabs)');
           }}
           variant="primary"
           size="large"
@@ -404,25 +384,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: Colors.shared.primary,
   },
-  cardForm: {
-    marginTop: 16,
-  },
-  input: {
-    backgroundColor: '#3D3D3D',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#FFF',
-    marginBottom: 12,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  inputHalf: {
-    flex: 1,
-  },
   termsText: {
     fontSize: 14,
     color: Colors.shared.gray,
@@ -436,7 +397,7 @@ const styles = StyleSheet.create({
   },
   bottomContainer: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 50,
     left: 0,
     right: 0,
     padding: 16,

@@ -242,10 +242,22 @@ export default function MotoDetailsScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Price */}
-          <View style={styles.priceContainer}>
-            <Text style={styles.priceLabel}>Preço Total</Text>
-            <Text style={styles.price}>R$ {totalPrice.toFixed(2).replace('.', ',')}</Text>
+          {/* Price Summary */}
+          <View style={styles.priceSummaryContainer}>
+            <Text style={styles.sectionTitle}>Resumo do Valor</Text>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceRowLabel}>Diária</Text>
+              <Text style={styles.priceRowValue}>R$ {moto.dailyRate.toFixed(2).replace('.', ',')}</Text>
+            </View>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceRowLabel}>Quantidade de dias</Text>
+              <Text style={styles.priceRowValue}>{totalDays} {totalDays === 1 ? 'dia' : 'dias'}</Text>
+            </View>
+            <View style={styles.priceDivider} />
+            <View style={styles.priceRow}>
+              <Text style={styles.priceTotalLabel}>Valor Total</Text>
+              <Text style={styles.priceTotalValue}>R$ {totalPrice.toFixed(2).replace('.', ',')}</Text>
+            </View>
           </View>
 
           {/* Specifications */}
@@ -504,18 +516,39 @@ const styles = StyleSheet.create({
   kmTextActive: {
     color: Colors.shared.darkBg,
   },
-  priceContainer: {
+  priceSummaryContainer: {
+    backgroundColor: Colors.shared.cardBg,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    paddingVertical: 8,
   },
-  priceLabel: {
+  priceRowLabel: {
     fontSize: 14,
     color: Colors.shared.gray,
   },
-  price: {
-    fontSize: 28,
+  priceRowValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  priceDivider: {
+    height: 1,
+    backgroundColor: Colors.shared.darkBg,
+    marginVertical: 8,
+  },
+  priceTotalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  priceTotalValue: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: Colors.shared.primary,
   },
