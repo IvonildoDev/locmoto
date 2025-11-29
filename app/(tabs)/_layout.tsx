@@ -74,6 +74,15 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="checklist"
+        options={{
+          title: 'Vistoria',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'clipboard' : 'clipboard-outline'} color={color} focused={focused} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
