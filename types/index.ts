@@ -78,5 +78,4 @@ export type RootStackParamList = {
   'register': undefined;
   'moto-details': { id: string };
   'checkout': { motorcycleId: string; pickupDate: string; returnDate: string };
-  'modal': undefined;
 };
