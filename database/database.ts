@@ -336,6 +336,16 @@ export const finalizarAluguel = (id: number): void => {
   }
 };
 
+// Buscar aluguel ativo por motoId
+export const getAluguelAtivoByMotoId = (motoId: number): AluguelDB | null => {
+  return db.getFirstSync(`
+    SELECT a.*
+    FROM alugueis a
+    WHERE a.motoId = ? AND a.status = 'ativo'
+    LIMIT 1
+  `, [motoId]) as AluguelDB | null;
+};
+
 // Marcar contrato como gerado
 export const marcarContratoGerado = (id: number): void => {
   db.runSync('UPDATE alugueis SET contratoGerado = 1 WHERE id = ?', [id]);

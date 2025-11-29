@@ -1,8 +1,10 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import {
     deleteMoto as deleteMotoDB,
+    finalizarAluguel as finalizarAluguelDB,
     getAllAlugueis,
     getAllMotos,
+    getAluguelAtivoByMotoId,
     initDatabase,
     insertAluguel,
     insertMoto as insertMotoDB,
@@ -38,6 +40,7 @@ interface MotosContextType {
   alugueisAtivos: Record<string, DadosAluguel>;
   setAlugueisAtivos: React.Dispatch<React.SetStateAction<Record<string, DadosAluguel>>>;
   registrarAluguel: (motoId: string, clienteId: number, dados: DadosAluguel) => void;
+  finalizarAluguel: (motoId: string) => void;
   refreshMotos: () => void;
   loading: boolean;
 }
@@ -220,6 +223,26 @@ export function MotosProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const finalizarAluguel = (motoId: string) => {
+    try {
+      // Buscar aluguel ativo para esta moto
+      const aluguel = getAluguelAtivoByMotoId(parseInt(motoId));
+      if (!aluguel || !aluguel.id) {
+        throw new Error('Aluguel não encontrado');
+      }
+
+      // Finalizar no banco
+      finalizarAluguelDB(aluguel.id);
+
+      // Recarregar dados
+      loadMotos();
+      loadAlugueis();
+    } catch (error) {
+      console.error('Erro ao finalizar aluguel:', error);
+      throw error;
+    }
+  };
+
   return (
     <MotosContext.Provider value={{ 
       motos, 
@@ -231,6 +254,7 @@ export function MotosProvider({ children }: { children: ReactNode }) {
       alugueisAtivos,
       setAlugueisAtivos,
       registrarAluguel,
+      finalizarAluguel,
       refreshMotos,
       loading,
     }}>

@@ -4,6 +4,7 @@ import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,11 +19,22 @@ import { useMotos } from '../../context/MotosContext';
 import { AluguelDB, getAlugueisFinalizados } from '../../database/database';
 
 export default function RelatorioScreen() {
-  const { motos, alugueisAtivos } = useMotos();
+  const { motos, alugueisAtivos, finalizarAluguel } = useMotos();
   const { clientes } = useClientes();
   const [selectedTab, setSelectedTab] = useState<'resumo' | 'clientes' | 'motos' | 'locadas'>('resumo');
   const [isGenerating, setIsGenerating] = useState(false);
   const [alugueisFinalizados, setAlugueisFinalizados] = useState<AluguelDB[]>([]);
+  
+  // Estado para modal de confirmação de entrega
+  const [showEntregaModal, setShowEntregaModal] = useState(false);
+  const [entregaData, setEntregaData] = useState<{
+    motoId: string;
+    motoNome: string;
+    clienteNome: string;
+    valorTotal: number;
+    dataInicio: string;
+    dataFim: string;
+  } | null>(null);
 
   const motosDisponiveis = motos.filter(m => m.available);
   const motosAlugadas = motos.filter(m => !m.available);
@@ -91,6 +103,26 @@ export default function RelatorioScreen() {
 
     return lista;
   }, [alugueisAtivos, alugueisFinalizados, motos, clientes]);
+
+  // Função para abrir modal de entrega
+  const handleEntrega = (motoId: string, motoNome: string, clienteNome: string, valorTotal: number, dataInicio: string, dataFim: string) => {
+    setEntregaData({ motoId, motoNome, clienteNome, valorTotal, dataInicio, dataFim });
+    setShowEntregaModal(true);
+  };
+
+  // Função para confirmar entrega
+  const confirmarEntrega = () => {
+    if (!entregaData) return;
+    
+    try {
+      finalizarAluguel(entregaData.motoId);
+      setShowEntregaModal(false);
+      setEntregaData(null);
+      Alert.alert('✅ Sucesso', 'Entrega registrada com sucesso!\nA moto está disponível para locação.');
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível registrar a entrega.');
+    }
+  };
 
   // Calcular dias restantes
   const calcularDiasRestantes = (dataFimStr: string) => {
@@ -558,6 +590,22 @@ export default function RelatorioScreen() {
                     </Text>
                     <Text style={styles.locadaValor}>R$ {aluguel.valorTotal.toFixed(2)}</Text>
                   </View>
+
+                  {/* Botão de Entrega */}
+                  <TouchableOpacity
+                    style={styles.entregaButton}
+                    onPress={() => handleEntrega(
+                      moto.id, 
+                      `${moto.brand} ${moto.model}`, 
+                      aluguel.cliente?.nome || 'Cliente',
+                      aluguel.valorTotal,
+                      aluguel.dataInicio,
+                      aluguel.dataFim
+                    )}
+                  >
+                    <Ionicons name="checkmark-done-circle" size={20} color="#FFF" />
+                    <Text style={styles.entregaButtonText}>Registrar Entrega</Text>
+                  </TouchableOpacity>
                 </>
               ) : (
                 <View style={styles.semInfoContainer}>
@@ -641,6 +689,100 @@ export default function RelatorioScreen() {
           disabled={isGenerating}
         />
       </View>
+
+      {/* Modal de Confirmação de Entrega */}
+      <Modal
+        visible={showEntregaModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEntregaModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            {/* Header do Modal */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconContainer}>
+                <Ionicons name="bicycle" size={32} color="#FFF" />
+              </View>
+              <Text style={styles.modalTitle}>Confirmar Entrega</Text>
+              <Text style={styles.modalSubtitle}>Verifique os dados antes de confirmar</Text>
+            </View>
+
+            {/* Conteúdo do Modal */}
+            {entregaData && (
+              <View style={styles.modalContent}>
+                <View style={styles.modalInfoCard}>
+                  <View style={styles.modalInfoRow}>
+                    <Ionicons name="bicycle" size={20} color={Colors.shared.primary} />
+                    <View style={styles.modalInfoTexts}>
+                      <Text style={styles.modalInfoLabel}>Moto</Text>
+                      <Text style={styles.modalInfoValue}>{entregaData.motoNome}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.modalDivider} />
+                  
+                  <View style={styles.modalInfoRow}>
+                    <Ionicons name="person" size={20} color={Colors.shared.primary} />
+                    <View style={styles.modalInfoTexts}>
+                      <Text style={styles.modalInfoLabel}>Cliente</Text>
+                      <Text style={styles.modalInfoValue}>{entregaData.clienteNome}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.modalDivider} />
+                  
+                  <View style={styles.modalInfoRow}>
+                    <Ionicons name="calendar" size={20} color={Colors.shared.primary} />
+                    <View style={styles.modalInfoTexts}>
+                      <Text style={styles.modalInfoLabel}>Período</Text>
+                      <Text style={styles.modalInfoValue}>{entregaData.dataInicio} - {entregaData.dataFim}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.modalDivider} />
+                  
+                  <View style={styles.modalInfoRow}>
+                    <Ionicons name="cash" size={20} color={Colors.shared.primary} />
+                    <View style={styles.modalInfoTexts}>
+                      <Text style={styles.modalInfoLabel}>Valor Total</Text>
+                      <Text style={styles.modalInfoValueHighlight}>R$ {entregaData.valorTotal.toFixed(2)}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.modalWarning}>
+                  <Ionicons name="information-circle" size={20} color="#F59E0B" />
+                  <Text style={styles.modalWarningText}>
+                    Ao confirmar, a moto ficará disponível para novas locações.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Botões do Modal */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalButtonCancel}
+                onPress={() => {
+                  setShowEntregaModal(false);
+                  setEntregaData(null);
+                }}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.modalButtonConfirm}
+                onPress={confirmarEntrega}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                <Text style={styles.modalButtonConfirmText}>Confirmar Entrega</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1001,6 +1143,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.shared.primary,
   },
+  entregaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#22C55E',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  entregaButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   semInfoContainer: {
     paddingVertical: 12,
   },
@@ -1018,5 +1176,131 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     width: '100%',
+  },
+  // Estilos do Modal de Entrega
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: Colors.shared.cardBg,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    backgroundColor: Colors.shared.primary,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  modalIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFF',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  modalContent: {
+    padding: 20,
+  },
+  modalInfoCard: {
+    backgroundColor: Colors.shared.darkBg,
+    borderRadius: 12,
+    padding: 16,
+  },
+  modalInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  modalInfoTexts: {
+    flex: 1,
+  },
+  modalInfoLabel: {
+    fontSize: 12,
+    color: Colors.shared.gray,
+    marginBottom: 2,
+  },
+  modalInfoValue: {
+    fontSize: 16,
+    color: '#FFF',
+    fontWeight: '500',
+  },
+  modalInfoValueHighlight: {
+    fontSize: 18,
+    color: '#22C55E',
+    fontWeight: 'bold',
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: '#3D3D3D',
+    marginVertical: 12,
+  },
+  modalWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+  },
+  modalWarningText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#F59E0B',
+    lineHeight: 18,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#3D3D3D',
+  },
+  modalButtonCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#3D3D3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  modalButtonConfirm: {
+    flex: 1.5,
+    flexDirection: 'row',
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#22C55E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  modalButtonConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
   },
 });
