@@ -203,6 +203,82 @@ export default function PerfilScreen() {
     }
   };
 
+  const updateClientCNHImage = async (newImageUri: string) => {
+    if (!selectedCliente) return;
+    
+    try {
+      // Aqui você pode adicionar lógica para atualizar no banco de dados
+      setSelectedCliente({
+        ...selectedCliente,
+        cnhImage: newImageUri,
+      });
+      Alert.alert('Sucesso', 'Foto da CNH atualizada com sucesso!');
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível atualizar a imagem.');
+    }
+  };
+
+  const pickClientImageFromGallery = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permissão necessária', 'É necessário permitir acesso à galeria.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      updateClientCNHImage(result.assets[0].uri);
+    }
+  };
+
+  const takeClientPhoto = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permissão necessária', 'É necessário permitir acesso à câmera.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      updateClientCNHImage(result.assets[0].uri);
+    }
+  };
+
+  const deleteClientCNHImage = () => {
+    Alert.alert(
+      'Excluir Imagem',
+      'Tem certeza que deseja excluir a foto da CNH?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => {
+            if (!selectedCliente) return;
+            setSelectedCliente({
+              ...selectedCliente,
+              cnhImage: null,
+            });
+            Alert.alert('Sucesso', 'Foto da CNH removida!');
+          },
+        },
+      ],
+    );
+  };
+
   const shareClienteData = async (cliente: any) => {
     try {
       let message = `📋 *DADOS DO CLIENTE*\n\n`;
@@ -675,18 +751,26 @@ export default function PerfilScreen() {
                     </View>
 
                     {/* Imagem da CNH */}
-                    {selectedCliente.cnhImage && (
+                    {selectedCliente.cnhImage ? (
                       <View style={styles.cnhImageContainer}>
                         <View style={styles.cnhImageHeader}>
                           <Text style={styles.cnhImageLabel}>
                             <Ionicons name="document-text" size={16} color={Colors.shared.primary} /> Foto da CNH
                           </Text>
-                          <TouchableOpacity 
-                            style={styles.shareButton}
-                            onPress={() => shareClienteData(selectedCliente)}
-                          >
-                            <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
-                          </TouchableOpacity>
+                          <View style={styles.cnhActionButtons}>
+                            <TouchableOpacity 
+                              style={styles.cnhActionButton}
+                              onPress={() => shareClienteData(selectedCliente)}
+                            >
+                              <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                              style={styles.cnhActionButton}
+                              onPress={deleteClientCNHImage}
+                            >
+                              <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
+                            </TouchableOpacity>
+                          </View>
                         </View>
                         <TouchableOpacity 
                           style={styles.cnhImagePreview}
@@ -702,6 +786,23 @@ export default function PerfilScreen() {
                             <Text style={styles.cnhImageOverlayText}>Toque para ampliar</Text>
                           </View>
                         </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={styles.cnhImageContainer}>
+                        <Text style={styles.cnhImageLabel}>
+                          <Ionicons name="document-text" size={16} color={Colors.shared.primary} /> Foto da CNH
+                        </Text>
+                        <View style={styles.uploadContainer}>
+                          <TouchableOpacity style={styles.uploadButton} onPress={pickClientImageFromGallery}>
+                            <Ionicons name="image-outline" size={32} color={Colors.shared.primary} />
+                            <Text style={styles.uploadText}>Galeria</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity style={styles.uploadButton} onPress={takeClientPhoto}>
+                            <Ionicons name="camera-outline" size={32} color={Colors.shared.primary} />
+                            <Text style={styles.uploadText}>Câmera</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     )}
                   </View>
@@ -1193,6 +1294,20 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   shareButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.shared.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#3D3D3D',
+  },
+  cnhActionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cnhActionButton: {
     width: 40,
     height: 40,
     borderRadius: 20,

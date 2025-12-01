@@ -16,7 +16,7 @@ import { Button } from '../../components/Button';
 import Colors from '../../constants/Colors';
 import { useClientes } from '../../context/ClientesContext';
 import { useMotos } from '../../context/MotosContext';
-import { AluguelDB, getAlugueisFinalizados } from '../../database/database';
+import { AluguelDB, getAlugueisAtivos, getAlugueisFinalizados } from '../../database/database';
 
 export default function RelatorioScreen() {
   const { motos, alugueisAtivos, finalizarAluguel } = useMotos();
@@ -24,6 +24,7 @@ export default function RelatorioScreen() {
   const [selectedTab, setSelectedTab] = useState<'resumo' | 'clientes' | 'motos' | 'locadas'>('resumo');
   const [isGenerating, setIsGenerating] = useState(false);
   const [alugueisFinalizados, setAlugueisFinalizados] = useState<AluguelDB[]>([]);
+  const [alugueisAtivosDB, setAlugueisAtivosDB] = useState<AluguelDB[]>([]);
   
   // Estado para modal de confirmação de entrega
   const [showEntregaModal, setShowEntregaModal] = useState(false);
@@ -39,17 +40,19 @@ export default function RelatorioScreen() {
   const motosDisponiveis = motos.filter(m => m.available);
   const motosAlugadas = motos.filter(m => !m.available);
 
-  // Carregar aluguéis finalizados do banco
+  // Carregar aluguéis finalizados e ativos do banco
   useEffect(() => {
-    const loadAlugueisFinalizados = async () => {
+    const loadAlugueisFromDB = async () => {
       try {
         const finalizados = await getAlugueisFinalizados();
+        const ativos = getAlugueisAtivos();
         setAlugueisFinalizados(finalizados);
+        setAlugueisAtivosDB(ativos);
       } catch (error) {
-        console.error('Erro ao carregar aluguéis finalizados:', error);
+        console.error('Erro ao carregar aluguéis:', error);
       }
     };
-    loadAlugueisFinalizados();
+    loadAlugueisFromDB();
   }, [alugueisAtivos]);
 
   // Montar lista de clientes com aluguéis (ativos e finalizados)
@@ -522,25 +525,25 @@ export default function RelatorioScreen() {
 
   const renderLocadas = () => (
     <View style={styles.listContainer}>
-      <Text style={styles.sectionTitle}>Motos Locadas ({motosAlugadas.length})</Text>
+      <Text style={styles.sectionTitle}>Motos Locadas ({alugueisAtivosDB.length})</Text>
       
-      {motosAlugadas.length === 0 ? (
+      {alugueisAtivosDB.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="bicycle-outline" size={64} color={Colors.shared.gray} />
           <Text style={styles.emptyText}>Nenhuma moto locada no momento</Text>
         </View>
       ) : (
-        motosAlugadas.map((moto) => {
-          const aluguel = alugueisAtivos[moto.id];
-          const diasRestantes = aluguel ? calcularDiasRestantes(aluguel.dataFim) : 0;
-          const totalDias = aluguel ? calcularTotalDias(aluguel.dataInicio, aluguel.dataFim) : 0;
+        alugueisAtivosDB.map((aluguel) => {
+          const moto = motos.find(m => m.id === String(aluguel.motoId));
+          const diasRestantes = calcularDiasRestantes(aluguel.dataFim);
+          const totalDias = calcularTotalDias(aluguel.dataInicio, aluguel.dataFim);
           
           return (
-            <View key={moto.id} style={styles.locadaCard}>
+            <View key={aluguel.id} style={styles.locadaCard}>
               <View style={styles.locadaHeader}>
                 <View style={styles.locadaMotoInfo}>
-                  <Text style={styles.locadaMotoNome}>{moto.brand} {moto.model}</Text>
-                  <Text style={styles.locadaPlaca}>Placa: {moto.plate || 'Não informada'}</Text>
+                  <Text style={styles.locadaMotoNome}>{aluguel.motoNome}</Text>
+                  <Text style={styles.locadaPlaca}>Placa: {moto?.plate || 'Não informada'}</Text>
                 </View>
                 <View style={[
                   styles.diasBadge,
@@ -553,11 +556,11 @@ export default function RelatorioScreen() {
                 </View>
               </View>
 
-              {aluguel && aluguel.cliente ? (
+              {aluguel ? (
                 <>
                   <View style={styles.locadaClienteRow}>
                     <Ionicons name="person" size={18} color={Colors.shared.primary} />
-                    <Text style={styles.locadaClienteNome}>{aluguel.cliente.nome}</Text>
+                    <Text style={styles.locadaClienteNome}>{aluguel.clienteNome}</Text>
                   </View>
                   
                   <View style={styles.locadaDetailsGrid}>
@@ -586,7 +589,7 @@ export default function RelatorioScreen() {
 
                   <View style={styles.locadaFooter}>
                     <Text style={styles.locadaTelefone}>
-                      <Ionicons name="call" size={14} color={Colors.shared.gray} /> {aluguel.cliente.telefone}
+                      <Ionicons name="call" size={14} color={Colors.shared.gray} /> {aluguel.clienteTelefone}
                     </Text>
                     <Text style={styles.locadaValor}>R$ {aluguel.valorTotal.toFixed(2)}</Text>
                   </View>
@@ -595,9 +598,9 @@ export default function RelatorioScreen() {
                   <TouchableOpacity
                     style={styles.entregaButton}
                     onPress={() => handleEntrega(
-                      moto.id, 
-                      `${moto.brand} ${moto.model}`, 
-                      aluguel.cliente?.nome || 'Cliente',
+                      String(aluguel.motoId), 
+                      aluguel.motoNome || 'Moto', 
+                      aluguel.clienteNome || 'Cliente',
                       aluguel.valorTotal,
                       aluguel.dataInicio,
                       aluguel.dataFim
