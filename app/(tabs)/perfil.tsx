@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
   Modal,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -16,6 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/Button';
 import Colors from '../../constants/Colors';
 import { useClientes } from '../../context/ClientesContext';
+import { useMotos } from '../../context/MotosContext';
+import { AluguelDB, getAllAlugueis } from '../../database/database';
 
 interface MenuItemProps {
   icon: string;
@@ -45,7 +48,12 @@ function MenuItem({ icon, title, onPress, showBadge, subtitle }: MenuItemProps) 
 
 export default function PerfilScreen() {
   const { addCliente, clientes } = useClientes();
+  const { motos } = useMotos();
   const [modalVisible, setModalVisible] = useState(false);
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [selectedCliente, setSelectedCliente] = useState<any>(null);
+  const [clienteAlugueis, setClienteAlugueis] = useState<AluguelDB[]>([]);
   const [cnh, setCnh] = useState(''); // Número da CNH
     // Dados do cliente
   const [nomeCompleto, setNomeCompleto] = useState('');
@@ -59,6 +67,30 @@ export default function PerfilScreen() {
   const [cep, setCep] = useState('');
   const [telefone, setTelefone] = useState('');
   const [cnhImage, setCnhImage] = useState<string | null>(null);
+
+  // Tratamento de erros não capturados
+  useEffect(() => {
+    const errorHandler = (error: any) => {
+      if (error?.message?.includes('keep awake')) {
+        console.warn('Keep awake error caught and suppressed:', error);
+        return true;
+      }
+      return false;
+    };
+
+    // Suprimir erros de keep awake no console
+    const originalConsoleError = console.error;
+    console.error = (...args: any[]) => {
+      if (args[0]?.toString().includes('keep awake')) {
+        return;
+      }
+      originalConsoleError(...args);
+    };
+
+    return () => {
+      console.error = originalConsoleError;
+    };
+  }, []);
 
   // Máscara de CPF XXX.XXX.XXX-XX
   const formatCpf = (text: string) => {
@@ -169,6 +201,70 @@ export default function PerfilScreen() {
     if (!result.canceled) {
       setCnhImage(result.assets[0].uri);
     }
+  };
+
+  const shareClienteData = async (cliente: any) => {
+    try {
+      let message = `📋 *DADOS DO CLIENTE*\n\n`;
+      message += `👤 *Nome:* ${cliente.nome}\n`;
+      message += `📄 *CPF:* ${cliente.cpf}\n`;
+      
+      if (cliente.cnh) {
+        message += `🪪 *CNH:* ${cliente.cnh}\n`;
+      }
+      
+      if (cliente.telefone) {
+        message += `📞 *Telefone:* ${cliente.telefone}\n`;
+      }
+      
+      if (cliente.rua) {
+        message += `\n📍 *ENDEREÇO*\n`;
+        message += `${cliente.rua}, ${cliente.numero}`;
+        if (cliente.complemento) {
+          message += ` - ${cliente.complemento}`;
+        }
+        message += `\n${cliente.bairro} - ${cliente.cidade}/${cliente.estado}`;
+        if (cliente.cep) {
+          message += `\nCEP: ${cliente.cep}`;
+        }
+      }
+      
+      // Buscar histórico de aluguéis
+      const alugueis = getAllAlugueis();
+      const clienteHistory = alugueis.filter(a => a.clienteId === cliente.id);
+      
+      if (clienteHistory.length > 0) {
+        message += `\n\n📊 *HISTÓRICO DE LOCAÇÕES*\n`;
+        message += `Total: ${clienteHistory.length} ${clienteHistory.length === 1 ? 'locação' : 'locações'}\n\n`;
+        
+        clienteHistory.forEach((aluguel, index) => {
+          const moto = motos.find(m => m.id === String(aluguel.motoId));
+          message += `${index + 1}. ${moto ? `${moto.brand} ${moto.model}` : aluguel.motoNome || 'Moto'}\n`;
+          message += `   📅 ${aluguel.dataInicio} até ${aluguel.dataFim}\n`;
+          message += `   💰 R$ ${aluguel.valorTotal.toFixed(2)}\n`;
+          message += `   Status: ${aluguel.status === 'ativo' ? '✅ Ativo' : '✔️ Finalizado'}\n\n`;
+        });
+      }
+
+      await Share.share({
+        message: message,
+        url: cliente.cnhImage,
+      });
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível compartilhar os dados.');
+    }
+  };
+
+  // Função para abrir modal de detalhes do cliente
+  const handleClientePress = (cliente: any) => {
+    setSelectedCliente(cliente);
+    
+    // Buscar histórico de aluguéis do cliente
+    const alugueis = getAllAlugueis();
+    const clienteHistory = alugueis.filter(a => a.clienteId === cliente.id);
+    setClienteAlugueis(clienteHistory);
+    
+    setDetailsModalVisible(true);
   };
 
   const handleSaveDados = () => {
@@ -295,7 +391,7 @@ export default function PerfilScreen() {
               <TouchableOpacity 
                 key={cliente.id}
                 style={styles.clienteListItem}
-                onPress={() => Alert.alert(cliente.nome, `CPF: ${cliente.cpf}\nTelefone: ${cliente.telefone || 'Não informado'}`)}
+                onPress={() => handleClientePress(cliente)}
               >
                 <View style={styles.clienteAvatar}>
                   <Ionicons name="person" size={24} color={Colors.shared.primary} />
@@ -492,6 +588,219 @@ export default function PerfilScreen() {
                 style={styles.saveButton}
               />
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Detalhes do Cliente */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={detailsModalVisible}
+        onRequestClose={() => setDetailsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Detalhes do Cliente</Text>
+              <TouchableOpacity onPress={() => setDetailsModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {selectedCliente && (
+                <>
+                  {/* Informações do Cliente */}
+                  <View style={styles.detailsSection}>
+                    <View style={styles.detailsAvatarContainer}>
+                      <View style={styles.detailsAvatar}>
+                        <Ionicons name="person" size={48} color={Colors.shared.primary} />
+                      </View>
+                      <Text style={styles.detailsNome}>{selectedCliente.nome}</Text>
+                    </View>
+
+                    <View style={styles.detailsInfoCard}>
+                      <View style={styles.detailsInfoRow}>
+                        <Ionicons name="card-outline" size={20} color={Colors.shared.primary} />
+                        <View style={styles.detailsInfoTexts}>
+                          <Text style={styles.detailsInfoLabel}>CPF</Text>
+                          <Text style={styles.detailsInfoValue}>{selectedCliente.cpf}</Text>
+                        </View>
+                      </View>
+
+                      {selectedCliente.cnh && (
+                        <>
+                          <View style={styles.detailsDivider} />
+                          <View style={styles.detailsInfoRow}>
+                            <Ionicons name="card" size={20} color={Colors.shared.primary} />
+                            <View style={styles.detailsInfoTexts}>
+                              <Text style={styles.detailsInfoLabel}>CNH</Text>
+                              <Text style={styles.detailsInfoValue}>{selectedCliente.cnh}</Text>
+                            </View>
+                          </View>
+                        </>
+                      )}
+
+                      {selectedCliente.telefone && (
+                        <>
+                          <View style={styles.detailsDivider} />
+                          <View style={styles.detailsInfoRow}>
+                            <Ionicons name="call-outline" size={20} color={Colors.shared.primary} />
+                            <View style={styles.detailsInfoTexts}>
+                              <Text style={styles.detailsInfoLabel}>Telefone</Text>
+                              <Text style={styles.detailsInfoValue}>{selectedCliente.telefone}</Text>
+                            </View>
+                          </View>
+                        </>
+                      )}
+
+                      {selectedCliente.rua && (
+                        <>
+                          <View style={styles.detailsDivider} />
+                          <View style={styles.detailsInfoRow}>
+                            <Ionicons name="location-outline" size={20} color={Colors.shared.primary} />
+                            <View style={styles.detailsInfoTexts}>
+                              <Text style={styles.detailsInfoLabel}>Endereço</Text>
+                              <Text style={styles.detailsInfoValue}>
+                                {selectedCliente.rua}, {selectedCliente.numero}
+                                {selectedCliente.complemento ? ` - ${selectedCliente.complemento}` : ''}
+                                {'\n'}{selectedCliente.bairro} - {selectedCliente.cidade}/{selectedCliente.estado}
+                                {selectedCliente.cep ? `\nCEP: ${selectedCliente.cep}` : ''}
+                              </Text>
+                            </View>
+                          </View>
+                        </>
+                      )}
+                    </View>
+
+                    {/* Imagem da CNH */}
+                    {selectedCliente.cnhImage && (
+                      <View style={styles.cnhImageContainer}>
+                        <View style={styles.cnhImageHeader}>
+                          <Text style={styles.cnhImageLabel}>
+                            <Ionicons name="document-text" size={16} color={Colors.shared.primary} /> Foto da CNH
+                          </Text>
+                          <TouchableOpacity 
+                            style={styles.shareButton}
+                            onPress={() => shareClienteData(selectedCliente)}
+                          >
+                            <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
+                          </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity 
+                          style={styles.cnhImagePreview}
+                          onPress={() => setImageViewerVisible(true)}
+                        >
+                          <Image 
+                            source={{ uri: selectedCliente.cnhImage }} 
+                            style={styles.cnhImage}
+                            resizeMode="cover"
+                          />
+                          <View style={styles.cnhImageOverlay}>
+                            <Ionicons name="expand-outline" size={24} color="#FFF" />
+                            <Text style={styles.cnhImageOverlayText}>Toque para ampliar</Text>
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Histórico de Locações */}
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.detailsSectionTitle}>
+                      <Ionicons name="time-outline" size={20} color={Colors.shared.primary} /> Histórico de Locações
+                    </Text>
+
+                    {clienteAlugueis.length === 0 ? (
+                      <View style={styles.emptyHistoryCard}>
+                        <Ionicons name="document-text-outline" size={48} color={Colors.shared.gray} />
+                        <Text style={styles.emptyHistoryText}>Nenhuma locação registrada</Text>
+                      </View>
+                    ) : (
+                      <>
+                        <Text style={styles.historyCount}>
+                          {clienteAlugueis.length} {clienteAlugueis.length === 1 ? 'locação' : 'locações'}
+                        </Text>
+                        {clienteAlugueis.map((aluguel, index) => {
+                          const moto = motos.find(m => m.id === String(aluguel.motoId));
+                          return (
+                            <View key={index} style={styles.historyCard}>
+                              <View style={styles.historyHeader}>
+                                <View style={styles.historyMotoInfo}>
+                                  <Ionicons name="bicycle" size={20} color={Colors.shared.primary} />
+                                  <Text style={styles.historyMotoNome}>
+                                    {moto ? `${moto.brand} ${moto.model}` : aluguel.motoNome || 'Moto não encontrada'}
+                                  </Text>
+                                </View>
+                                <View style={[
+                                  styles.historyStatusBadge,
+                                  aluguel.status === 'ativo' ? styles.statusAtivoBadge : styles.statusFinalizadoBadge
+                                ]}>
+                                  <Text style={styles.historyStatusText}>
+                                    {aluguel.status === 'ativo' ? 'Ativo' : 'Finalizado'}
+                                  </Text>
+                                </View>
+                              </View>
+
+                              <View style={styles.historyDetails}>
+                                <View style={styles.historyDetailRow}>
+                                  <Ionicons name="calendar-outline" size={16} color={Colors.shared.gray} />
+                                  <Text style={styles.historyDetailText}>
+                                    {aluguel.dataInicio} até {aluguel.dataFim}
+                                  </Text>
+                                </View>
+                                <View style={styles.historyDetailRow}>
+                                  <Ionicons name="cash-outline" size={16} color={Colors.shared.gray} />
+                                  <Text style={styles.historyDetailText}>
+                                    R$ {aluguel.valorTotal.toFixed(2)}
+                                  </Text>
+                                </View>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </>
+                    )}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Visualização de Imagem em Tela Cheia */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={imageViewerVisible}
+        onRequestClose={() => setImageViewerVisible(false)}
+      >
+        <View style={styles.imageViewerOverlay}>
+          <TouchableOpacity 
+            style={styles.closeImageButton}
+            onPress={() => setImageViewerVisible(false)}
+          >
+            <Ionicons name="close-circle" size={40} color="#FFF" />
+          </TouchableOpacity>
+          
+          {selectedCliente?.cnhImage && (
+            <Image 
+              source={{ uri: selectedCliente.cnhImage }} 
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          )}
+          
+          <View style={styles.imageViewerActions}>
+            <TouchableOpacity 
+              style={styles.imageActionButton}
+              onPress={() => shareClienteData(selectedCliente)}
+            >
+              <Ionicons name="logo-whatsapp" size={28} color="#25D366" />
+              <Text style={styles.imageActionText}>Compartilhar</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -735,5 +1044,230 @@ const styles = StyleSheet.create({
   clienteCpf: {
     fontSize: 13,
     color: Colors.shared.gray,
+  },
+  // Estilos do Modal de Detalhes
+  detailsSection: {
+    marginBottom: 24,
+  },
+  detailsAvatarContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  detailsAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(230, 126, 34, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: Colors.shared.primary,
+  },
+  detailsNome: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  detailsInfoCard: {
+    backgroundColor: Colors.shared.cardBg,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#3D3D3D',
+  },
+  detailsInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  detailsInfoTexts: {
+    flex: 1,
+  },
+  detailsInfoLabel: {
+    fontSize: 12,
+    color: Colors.shared.gray,
+    marginBottom: 4,
+  },
+  detailsInfoValue: {
+    fontSize: 15,
+    color: '#FFF',
+    lineHeight: 22,
+  },
+  detailsDivider: {
+    height: 1,
+    backgroundColor: '#3D3D3D',
+    marginVertical: 12,
+  },
+  detailsSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFF',
+    marginBottom: 16,
+  },
+  emptyHistoryCard: {
+    backgroundColor: Colors.shared.cardBg,
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#3D3D3D',
+  },
+  emptyHistoryText: {
+    fontSize: 14,
+    color: Colors.shared.gray,
+    marginTop: 12,
+  },
+  historyCount: {
+    fontSize: 13,
+    color: Colors.shared.gray,
+    marginBottom: 12,
+  },
+  historyCard: {
+    backgroundColor: Colors.shared.cardBg,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#3D3D3D',
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  historyMotoInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  historyMotoNome: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFF',
+    flex: 1,
+  },
+  historyStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusAtivoBadge: {
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+  },
+  statusFinalizadoBadge: {
+    backgroundColor: 'rgba(156, 163, 175, 0.15)',
+  },
+  historyStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  historyDetails: {
+    gap: 8,
+  },
+  historyDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyDetailText: {
+    fontSize: 14,
+    color: Colors.shared.gray,
+  },
+  // Estilos da CNH no Modal de Detalhes
+  cnhImageContainer: {
+    marginTop: 20,
+  },
+  cnhImageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cnhImageLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  shareButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.shared.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#3D3D3D',
+  },
+  cnhImagePreview: {
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#3D3D3D',
+  },
+  cnhImage: {
+    width: '100%',
+    height: 200,
+    backgroundColor: Colors.shared.cardBg,
+  },
+  cnhImageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  cnhImageOverlayText: {
+    fontSize: 12,
+    color: '#FFF',
+    fontWeight: '500',
+  },
+  // Estilos do Modal de Visualização de Imagem
+  imageViewerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeImageButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '80%',
+  },
+  imageViewerActions: {
+    position: 'absolute',
+    bottom: 40,
+    flexDirection: 'row',
+    gap: 16,
+  },
+  imageActionButton: {
+    backgroundColor: Colors.shared.cardBg,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#3D3D3D',
+  },
+  imageActionText: {
+    fontSize: 14,
+    color: '#FFF',
+    fontWeight: '600',
   },
 });
